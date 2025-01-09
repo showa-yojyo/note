@@ -58,9 +58,144 @@ Python で |CLI| を書くときに Click_ はたいへん便利なパッケー�
 使用方法・コツ
 ======================================================================
 
+単一コマンドしかないような単純なスクリプトを作成する場合ですらよく使う手筋を記
+す。
+
+Python 関数をコマンドに仕立てる
+----------------------------------------------------------------------
+
+Click_ を用いるもっとも単純なスクリプトは次のようなコードだ：
+
+.. sourcecode:: python
+   :caption: ``import click`` を含む最小スクリプト
+   :force:
+
+   import click
+
+   @click.command()
+   def main():
+       """Output a text."""
+       click.echo("Hello world.")
+
+   if __name__ == "__main__":
+       main()
+
+このスクリプトの名前を :file:`helloworld.py` とすると、これだけで次のコマンドラ
+インが有効だ：
+
+* ``helloworld.py``
+* ``helloworld.py --help``: オプション ``--help`` も自動的に組み込まれる。
+
+オプション ``--help`` を調整する
+----------------------------------------------------------------------
+
+既存のオプション説明文と整合させるために ``@click.help_option`` などを明示的に用
+いて ``--help`` 自身のヘルプ文言を独自化することが可能だ。
+
+.. sourcecode:: python
+   :caption: ``@click.help_option`` を使って説明文を自分で決める
+   :force:
+
+   import click
+
+   @command()
+   @click.help_option(help="show this message and exit")
+   def main(): ...
+
+   if __name__ == "__main__":
+       main()
+
+オプション ``--version`` を実装する
+----------------------------------------------------------------------
+
+Click_ が用意している ``@click.version_option`` を再利用するのが手っ取り早い。コ
+マンド定義関数からアプリケーションまたはパッケージのバージョン文字列が参照可能で
+ある場合には次のようにするのが自然だ：
+
+.. sourcecode:: python
+   :caption: ``@click.version_option`` を使って ``--version`` を実装する
+   :force:
+
+   import click
+
+   @command()
+   @click.version_option(__version__, help="show the version and exit")
+   def main(): ...
+
+   if __name__ == "__main__":
+       main()
+
+このスクリプトの名前を :file:`myapp.py` とすると、これだけでコマンドライン
+``myapp.py --version`` が有効となる。
+
+より詳細なバージョン出力を備えたい場合には ``version_option`` ではなく、汎用の
+``option`` を用いる。さらにコールバックで実装する：
+
+.. sourcecode:: python
+   :caption: ``@click.option`` を使って ``--version`` を自前で実装する
+   :force:
+
+   import sys
+   import click
+
+   def print_version(
+       ctx: click.Context,
+       param: click.Parameter,
+       value: bool,
+   ) -> None:
+       """Display version information and exit."""
+
+       if not value or ctx.resilient_parsing:
+           return
+
+       click.echo(f"myapp.py: {__version__}")
+       click.echo(f"Click: {click.__version__}")
+       click.echo(f"Python: {sys.version}")
+       ctx.exit()
+
+
+   @click.command()
+   @click.option(
+       "-V",
+       "--version",
+       is_flag=True,
+       callback=print_version,
+       expose_value=False,
+       is_eager=True,
+       help="display version information and exit",
+   )
+   def main(): ...
+
 .. todo::
 
-   Click_ を愉しみながら執筆する。
+   参考にした Stack Overflow のスレを引用する。
+
+
+.. * docstring での改行
+.. * ``@click.command``
+.. * ``@click.argument``
+.. * ``@click.option`` でよく使うキーワード引数
+..
+..   * ``metavar``
+..
+..      * `metavar` に使えない文字がある？
+..   * ``type``
+..   * ``default``
+..   * ``is_flag``
+.. * ``click.echo``
+.. * ``click.get_app_dir``
+.. *
+.. * 構成ファイル実装
+..
+..   * ``@click.pass_context``
+.. * ユーザー名とパスワード ``@click.password_option``
+.. * ``type=click.Path`` で ``path_type`` を指定する
+.. * ``type=click.Choice``
+.. * 日付型オプション (`type=click.DateTime(...)`)
+
+.. todo::
+
+   Click_ を愉しみながら執筆する。リンク追加。
 
 資料集
 ======================================================================
