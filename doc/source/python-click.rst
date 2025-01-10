@@ -61,6 +61,22 @@ Python で |CLI| を書くときに Click_ はたいへん便利なパッケー�
 単一コマンドしかないような単純なスクリプトを作成する場合ですらよく使う手筋を記
 す。
 
+画面への出力には関数 ``click.echo`` を使え
+----------------------------------------------------------------------
+
+公式文書によれば、関数 ``click.echo`` を Python 標準 ``print()`` の代わりとして
+なるべく使えとある。さまざまなデータ、ファイル、環境に対してより良く働く。
+
+個人的に好きな性質を挙げる：
+
+* 色や単純な書式付きでテキストを出力可能。例えば赤い太字とか。
+* 出力が対話型端末でなさそうな場合、ANSI 色とスタイルコードを削る。
+* 出力をつねにフラッシュする。
+
+.. todo::
+
+   Python 標準 ``logging`` との棲み分けは？
+
 Python 関数をコマンドに仕立てる
 ----------------------------------------------------------------------
 
@@ -83,8 +99,13 @@ Click_ を用いるもっとも単純なスクリプトは次のようなコー�
 このスクリプトの名前を :file:`helloworld.py` とすると、これだけで次のコマンドラ
 インが有効だ：
 
-* ``helloworld.py``
+* 当然ながら ``helloworld.py`` のみ。
 * ``helloworld.py --help``: オプション ``--help`` も自動的に組み込まれる。
+
+このオプションを付けてスクリプトを走らせると、ヘルプを表示して終了する。そのとき
+の本文はコマンド関数の docstring から構成される。Click_ はこのテキストを端末画面
+の幅に合わせて折り返し表示する。エディターに入力したとおりに画面に出力させるには
+制御文字 ``\b`` を用いる。解除は ``\f`` だ。
 
 オプション ``--help`` を調整する
 ----------------------------------------------------------------------
@@ -118,6 +139,8 @@ Click_ が用意している ``@click.version_option`` を再利用するのが�
 
    import click
 
+   __version__ = "1.0.0"
+
    @command()
    @click.version_option(__version__, help="show the version and exit")
    def main(): ...
@@ -127,6 +150,18 @@ Click_ が用意している ``@click.version_option`` を再利用するのが�
 
 このスクリプトの名前を :file:`myapp.py` とすると、これだけでコマンドライン
 ``myapp.py --version`` が有効となる。
+
+フラグ名を ``--version`` だけではなく ``-V`` にも対応するには、バージョン実引数
+のすぐ次からキーワード実引数すべての直前までにフラグ名を列挙すればいい：
+
+.. sourcecode:: lang
+   :caption: "-V" と "--version" の両方をバージョンフラグとする
+   :force:
+
+   @command()
+   @click.version_option(__version__, "-V", "--version")
+   def main(): ...
+
 
 より詳細なバージョン出力を備えたい場合には ``version_option`` ではなく、汎用の
 ``option`` を用いる。さらにコールバックで実装する：
@@ -170,26 +205,149 @@ Click_ が用意している ``@click.version_option`` を再利用するのが�
 
    参考にした Stack Overflow のスレを引用する。
 
+コマンドライン引数をファイルパスとする
+----------------------------------------------------------------------
 
-.. * docstring での改行
-.. * ``@click.command``
-.. * ``@click.argument``
-.. * ``@click.option`` でよく使うキーワード引数
-..
-..   * ``metavar``
-..
-..      * `metavar` に使えない文字がある？
-..   * ``type``
-..   * ``default``
-..   * ``is_flag``
-.. * ``click.echo``
-.. * ``click.get_app_dir``
-.. *
-.. * 構成ファイル実装
-..
+ファイルパスを引数にとるスクリプトを作成する機会は頻繁にある。コマンドライン引数
+として複数のパス文字列を取るコマンドを作る場合には、次のようにするのがよい。
+
+.. sourcecode:: python
+   :caption: ``type=click.Path`` の適用例
+   :force:
+
+   import pathlib
+   import click
+
+   @click.command()
+   @click.argument(
+       "file",
+       nargs=-1,
+       type=click.Path(
+           exists=True,
+           path_type=pathlib.Path,
+       ),
+   )
+   def main(file): ...
+
+Python コードではコマンド関数 ``main`` の最初の仮引数名が ``@click.argument`` の
+最初の実引数値と同じになる。
+
+* ``myapp.py file1 file2`` のようなコマンドが許される。
+* ``nargs=-1`` のおかげでパスを全く指定しないコマンドも許される。この手のイン
+  ターフェイスはそう設計するのが鉄則だ。
+* 急所は ``type=click.Path(...)`` だ。これは引数 ``file`` がファイルシステムの有
+  効なパス文字列であることを保証する。コンストラクターに渡す値により、そのパス文
+  字列の条件を柔軟に指定することが可能だ。例えば、
+
+  * ``exists=True`` により、存在するファイルパスしか指定を許さない。
+  * ``path_type=pathlib.Path`` により、関数 ``main`` の引数としての ``file`` の
+    型を ``pathlib.Path`` に変換させる。後続のパス操作に便利であるがゆえ、このパ
+    ス型指定を与えたい。
+
+``@click.option`` 系デコレーターでよく使うキーワード引数
+----------------------------------------------------------------------
+
+``@click.option`` 系デコレーターでよく使うキーワード引数はクラス ``Option`` のコ
+ンストラクターが取る引数とだいたい一致する。よく使用するものを下に載せる：
+
+``help``
+   ヘルプ文字列。自作オプションに対しては必ず指定しろ。
+``type``
+   オプション値の型。これを適切に指定しておくと、Click_ がコマンドラインからの入
+   力値を検証してから、値を所望の型に変換するか、エラーで終了する。Python 組み込
+   み型を渡す場合もあるが、パスや日付など、土台は文字列だが特別な書式をとる値に
+   対して機能する専用型も Click_ は備えている。後ほど個別に記すが、例を挙げる：
+
+   * ``click.Choice``
+   * ``click.DateTime``
+   * ``click.File``
+   * ``click.Path``
+
+``is_flag``
+   オプションをフラグとして機能させたい場合には値を ``True`` に明示的に指示しろ。
+   指定しない場合には Click_ がオプション型を自動的に判断する。
+``show_default``
+   コマンドヘルプ表示において、当該オプションの既定値をヘルプ画面に出すかどうか
+   を指定する。Click_ は ``False`` を既定とするが、一律 ``True`` でいいと思う。
+``show_envvar``
+   当該オプションが環境変数に対応している場合、コマンドヘルプ表示にその変数名を
+   示すかどうかを指定する。一律 ``True`` でいいと思う。
+
+構成ファイル実装
+----------------------------------------------------------------------
+
+Git でいうところのファイル :file:`.gitconfig` のような機能を実現する手順を記す。
+
+まず、コマンドラインオプション ``-c FILE`` または ``--config FILE`` で構成ファイ
+ルを指定するインターフェイスを定義する：
+
+.. sourcecode:: python
+   :caption: オプション ``--config`` 搭載例
+   :force:
+
+   import pathlib
+   import click
+
+   @click.command()
+   @click.option(
+       "-c",
+       "--config",
+       type=click.Path(exists=True, path_type=pathlib.Path),
+       default=None,
+       metavar="PATH",
+       callback=configure,
+       is_eager=True,
+       expose_value=False,
+       help="path to config file",
+   )
+   def main(): ...
+
+キーワード引数を指定する狙いは次のとおり：
+
+* ``type=click.Path(...)`` の行の目的は先述のとおり、既存のファイルパスを与えら
+  れることを保証したい。
+* ``is_eager=True`` であるオプション値は、そうでない値のものより先に処理される。
+  構成ファイル処理を急いているのだ。これを利用して構成ファイルを先に読み込むのが
+  目的だ。
+* ``expose_value=False`` を指定して、関数 ``main`` の引数リストに対応する引数を
+  与えなくて済むようにする。構成ファイル処理を ``main`` で行うわけではないのだ。
+* ``callback=configure`` を指定して、構成ファイルを読み込む関数を呼び出すように
+  指示する。ここでは関数 ``configure`` を呼び出させる。
+
+別途コールバック関数 ``configure`` を実装する。次の例のコードは構成ファイルの書
+式を YAML であるとしている。
+
+.. sourcecode:: python
+   :caption: 構成ファイル読み込み例
+   :force:
+
+   import yaml
+
+   def configure(ctx, param, value):
+       if value:
+           assert isinstance(value, pathlib.Path)
+           with open(value, mode="r") as fin:
+               ctx.default_map = yaml.safe_load(fin)
+       return value
+
+辞書 ``ctx.default_map`` とはコマンドラインオプションの既定値を含むデータであり、
+YAML ファイル内容の値を使ってそれを初期化するという理解でいい。
+
+.. todo::
+
+   参考にした Stack Overflow のスレのリンクを掲載する。
+
+関数 ``click.get_app_dir``
+----------------------------------------------------------------------
+
+構成ファイル読み込み処理にも関連するのだが、その既定パスを決定するのに関数
+``get_app_dir`` が有用だ。アプリケーションやパッケージの名前を指定すると、その構
+成ディレクトリーパス文字列を得られる。
+
+既定動作では OS に最適のパスを返す。例えば WSL を含む Linux では：
+
 ..   * ``@click.pass_context``
 .. * ユーザー名とパスワード ``@click.password_option``
-.. * ``type=click.Path`` で ``path_type`` を指定する
 .. * ``type=click.Choice``
 .. * 日付型オプション (`type=click.DateTime(...)`)
 
