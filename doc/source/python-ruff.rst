@@ -410,7 +410,7 @@ GitHub Actions
      with:
        src: ["./src"]
 
-どの規則を採用するのが良いか
+採用する規則を検討する
 ======================================================================
 
 コマンド ``ruff rules --all`` を実行すれば :program:`ruff` が支援する規則すべて
@@ -522,9 +522,21 @@ flake8-annotations (ANN)
 flake8-async (ASYNC)
 ----------------------------------------------------------------------
 
-.. todo::
+この規則集は標準モジュール ``asyncio`` だけでなく、サードパーティー製パッケージ
+の使用に対しても検証する。このノートではそういう規則を読むのは省く。
 
-   TBD
+* ASYNC100: ``await``, ``async with``, ``async for`` のいずれもないタイムアウト
+  付きコンテキストマネジャーはダメだ。
+* ASYNC109: 非同期タイムアウト関数を自前で実装してはダメだ。具体的には、仮引数
+  ``timeout`` を有する引数リストの関数定義はダメだ。
+* ASYNC110: 関数 ``asyncio.sleep`` を継続フラグを見続ける ``while`` ループ内で呼
+  び出すような構造のコードはダメだ。
+* ASYNC{220,221}: 同期的メソッドを持つサブプロセスやプロセスを非同期関数が作成、
+  実行するのはダメだ。
+* ASYNC222: 非同期関数定義で同期的関数呼び出しをするのはダメだ。
+* ASYNC230: 非同期関数定義で ``open`` のような同期的関数でファイルを開いてはダメ
+  だ。
+* ASYNC251: 非同期関数が関数 ``time.sleep`` を呼び出すのはダメだ。
 
 flake8-bandit (S)
 ----------------------------------------------------------------------
@@ -1031,6 +1043,30 @@ NumPy-specific rules (NPY)
   い。
 * NPY201: numpy2-deprecation
 
+FastAPI (FAST)
+----------------------------------------------------------------------
+
+FastAPI というサードパーティー製パッケージに関する規則集。知らないので割愛。
+
+Airflow (AIR)
+----------------------------------------------------------------------
+
+Apache Airflow というサードパーティー製パッケージに関する規則集。知らないので割
+愛。
+
+Perflint (PERF)
+----------------------------------------------------------------------
+
+性能に関する規則集。
+
+* PERF101: 例えば ``for i in list(iterable): ...`` のような ``list`` はダメだ。
+* PERF102: 辞書に関して、メソッド ``items`` よりも ``keys``, ``values`` で済む場
+  合はそうしろ。
+* PERF203: ループの中に ``try`` ブロックを書くな。
+* PERF{401,403}: 内包記法で書け。ループを書くな。
+* PERF402: リストオブジェクトの複製は ``list`` コンストラクターかメソッド
+  ``copy`` を使え。
+
 refurb (FURB)
 ----------------------------------------------------------------------
 
@@ -1052,6 +1088,22 @@ refurb (FURB)
 * FURB167: ``re.I`` などは ``re.IGNORECASE`` などと書かないようではダメだ。
 * FURB181: メソッド ``hexdigest`` の使用推奨。確認したら大丈夫だった。
 * FURB188: メソッド ``removeprefix``, ``removesuffix`` は使った記憶がない。
+
+pydoclint (DOC)
+----------------------------------------------------------------------
+
+Pydoclint は docstring の記述が関数の実際のインターフェイスや定義と一致している
+かどうかを検査する。
+
+* DOC{201,202}: 意味のある戻り値がある関数に Returns の記述がないのはダメだ。ま
+  た、戻り値がない関数に Returns の記述があるのはダメだ。
+* DOC{402,403}: 関数がジェネレーターならば Yields の記述がないのはダメだ。また、
+  関数がジェネレーターでないのに Yields の記述があるのはダメだ。
+* DOC{501,502}: 明示的に送出する例外をすべて記述しなければダメだ。また、例外を直
+  接送出しないにもかかわらず、送出する可能性があると記述するのはダメだ。
+
+抽象メソッドはこれらの規則の適用外だ。本体が ``pass``, ``...``, ``raise
+NotImplementedError``, これらに類するもので構成されている関数も適用外だ。
 
 Ruff-specific rules (RUF)
 ----------------------------------------------------------------------
@@ -1085,7 +1137,62 @@ Ruff_
 `How can I print to standard output what rules are currently enabled given my config? <https://github.com/astral-sh/ruff/discussions/8724>`__
    GitHub リポジトリーより。
 
+これ以外にも規則集の原典が多数ある。
+
 .. include:: /_include/python-refs-core.txt
 .. _PEP483: https://peps.python.org/pep-0483/
 .. _pre-commit: https://pre-commit.com/
 .. _Ruff: https://docs.astral.sh/ruff/
+
+.. https://github.com/PyCQA/pyflakes
+.. https://pycodestyle.pycqa.org/en/latest/
+.. https://github.com/pycqa/mccabe
+.. https://github.com/pycqa/isort/
+.. https://github.com/PyCQA/pep8-naming
+.. https://github.com/PyCQA/pydocstyle
+.. https://github.com/asottile/pyupgrade
+.. https://github.com/asottile-archive/flake8-2020
+.. https://github.com/sco1/flake8-annotations
+.. https://github.com/python-trio/flake8-async
+.. https://github.com/tylerwince/flake8-bandit
+.. https://github.com/elijahandrews/flake8-blind-except
+.. https://github.com/pwoolvett/flake8_boolean_trap
+.. https://github.com/PyCQA/flake8-bugbear
+.. https://github.com/gforcada/flake8-builtins
+.. https://github.com/PyCQA/flake8-commas/
+.. https://github.com/savoirfairelinux/flake8-copyright
+.. https://github.com/adamchainz/flake8-comprehensions
+.. https://github.com/pjknkda/flake8-datetimez
+.. https://github.com/jbkahn/flake8-debugger
+.. https://github.com/henryiii/flake8-errmsg
+.. https://github.com/xuhdev/flake8-executable
+.. https://github.com/tyleryep/flake8-future-annotations
+.. https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat
+.. https://github.com/joaopalmeiro/flake8-import-conventions
+.. https://github.com/adamchainz/flake8-logging
+.. https://github.com/globality-corp/flake8-logging-format
+.. https://github.com/adamchainz/flake8-no-pep420
+.. https://github.com/sbdchd/flake8-pie
+.. https://github.com/jbkahn/flake8-print
+.. https://github.com/m-burst/flake8-pytest-style
+.. https://github.com/zheller/flake8-quotes/
+.. https://github.com/jdufresne/flake8-raise
+.. https://github.com/afonasev/flake8-return
+.. https://github.com/korijn/flake8-self
+.. https://github.com/python-formate/flake8-slots
+.. https://github.com/MartinThoma/flake8-simplify
+.. https://github.com/adamchainz/flake8-tidy-imports
+.. https://github.com/snok/flake8-type-checking
+.. https://github.com/cielavenir/flake8_gettext
+.. https://github.com/nhoad/flake8-unused-arguments
+.. https://gitlab.com/RoPP/flake8-use-pathlib
+.. https://github.com/orsinium-labs/flake8-todos/
+.. https://github.com/tommilligan/flake8-fixme
+.. https://github.com/PyCQA/eradicate
+.. https://github.com/pre-commit/pygrep-hooks
+.. https://github.com/pylint-dev/pylint
+.. https://github.com/guilatrova/tryceratops
+.. https://github.com/ikamensh/flynt
+.. https://github.com/tonybaloney/perflint
+.. https://github.com/dosisod/refurb
+.. https://github.com/jsh9/pydoclint
