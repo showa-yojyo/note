@@ -118,19 +118,65 @@ Python 言語仕様には、変数、関数、クラス、等々のコード構�
 
    Python コード
 
-   * 当分は ``from __future__ import annotations`` を入れておくのが無難
-   * ``from typing import TYPE_CHECKING`` などの定型文メモ
    * ``reveal_type(X)`` の正しい使い方
-   * ``Union[X, None]``, ``Optional[X, None]``, ``X | None``
-   * ``Any`` をなるべく書かない
-   * ``TypedDict``, ``NamedTuple``
-   * ``NoReturn``, ``Never``
-   * ``Self``
-   * ``Callable``
-   * あのグラフを用意したい
    * ``@overload`` は使ったことがない
    * ``.pyi`` ファイル
    * :file:`py.typed` ファイル
+
+型注釈に関する定型コード
+----------------------------------------------------------------------
+
+スクリプトにせよモジュールにせよ、Python ファイルのインポート区画は次のコードを
+含む：
+
+.. sourcecode:: python
+   :caption: 型検査ブロックコード
+   :force:
+
+   from __future__ import annotations
+   from typing import TYPE_CHECKING
+
+   if TYPE_CHECKING:
+       # E.g. from typing import None, Self
+
+この ``if`` ブロックでは型注釈にしか必要でないものをインポートする。
+
+型注釈に関する作法
+----------------------------------------------------------------------
+
+Python コードに対する静的解析ツール Ruff_ を併用して、型注釈に関する諸規則をオン
+にするとよい。
+
+.. seealso::
+
+   :doc:`./python-ruff` の次の節を見ろ：
+
+   * pyupgrade (UP): UP{013,014}, UP040, UP045.
+   * flake8-annotations (ANN)
+   * flake8-type-checking (TC)
+
+よく用いる注釈用型
+----------------------------------------------------------------------
+
+* 組み込み型
+* `typing <https://docs.python.org/3/library/typing.html>`__
+
+  * ``Any``
+  * ``Final``
+  * ``Literal`` およびその仲間
+  * ``NamedTuple``
+  * ``Never``
+  * ``NoReturn``
+  * ``Self``
+  * ``TypedDict``
+* `collections.abc <https://docs.python.org/3/library/collections.abc.html>`__:
+  リンク先文書の `Collections Abstract Base Classes` 節の表を理解しろ。
+
+  * ``Callable[]``: e.g. ``Callable[[ArgType0, ArgType1, ...], ReturnType]``
+  * ``Generator[]``: e.g. ``Generator[YieldType, SendType, ReturnType]``
+  * ``Iterable[]``: e.g. ``Iterable[YieldType]``
+  * ``Mapping[]``: e.g. ``Mapping[KeyType, ValueType]``
+  * ``Sequence[]``: e.g. ``Sequence[ValueType]``
 
 資料集
 ======================================================================
@@ -158,3 +204,4 @@ Python 言語仕様には、変数、関数、クラス、等々のコード構�
 .. _mypy documentation: https://mypy.readthedocs.io/en/stable/
 .. _PEP 484:
 .. _PEP 484 - Type Hints: https://peps.python.org/pep-0484/
+.. _Ruff: https://docs.astral.sh/ruff/
