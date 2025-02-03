@@ -2,7 +2,11 @@
 mypy 利用ノート
 ======================================================================
 
+道具としての |mypy| に関する雑記帳にしたいが、論点が絞れないので Python 型注釈機
+能に関しても綴っていく。
+
 .. |conda| replace:: :program:`conda`
+.. |mypy| replace:: :program:`mypy`
 .. |mypy.ini| replace:: :file:`mypy.ini`
 .. |pyproject| replace:: :file:`pyproject.toml`
 
@@ -110,18 +114,7 @@ Python 言語仕様には、変数、関数、クラス、等々のコード構�
 使用方法・コツ
 ======================================================================
 
-.. todo::
-
-   関連ツール
-
-   * VS Code Pylance extension
-
-   Python コード
-
-   * ``reveal_type(X)`` の正しい使い方
-   * ``@overload`` は使ったことがない
-   * ``.pyi`` ファイル
-   * :file:`py.typed` ファイル
+前提として、`mypy documentation`_ の最初の方の記述は体得することとする。
 
 型注釈に関する定型コード
 ----------------------------------------------------------------------
@@ -137,7 +130,7 @@ Python 言語仕様には、変数、関数、クラス、等々のコード構�
    from typing import TYPE_CHECKING
 
    if TYPE_CHECKING:
-       # E.g. from typing import None, Self
+       # E.g. from typing import Never, Self
 
 この ``if`` ブロックでは型注釈にしか必要でないものをインポートする。
 
@@ -158,7 +151,11 @@ Python コードに対する静的解析ツール Ruff_ を併用して、型注
 よく用いる注釈用型
 ----------------------------------------------------------------------
 
-* 組み込み型
+型注釈で用いる型には、オブジェクトの型ずばりそのものである場合とそうでない場合が
+ある。例として、自作関数のある引数の型として ``list[str]`` を想定していても、論
+理的には ``Sequence[str]`` や ``Iterable[str]`` などが正しいなどという場合が考え
+られる。後者についてはよくインポートする型があり、それを次にまとめる。
+
 * `typing <https://docs.python.org/3/library/typing.html>`__
 
   * ``Any``
@@ -168,15 +165,140 @@ Python コードに対する静的解析ツール Ruff_ を併用して、型注
   * ``Never``
   * ``NoReturn``
   * ``Self``
-  * ``TypedDict``
 * `collections.abc <https://docs.python.org/3/library/collections.abc.html>`__:
-  リンク先文書の `Collections Abstract Base Classes` 節の表を理解しろ。
+  リンク先文書の `Collections Abstract Base Classes` 節の表を理解しろ。特に
+  Inherits from 列が重要だ。例えば ``MutableSequence`` が必要なのに ``Sequence``
+  と書いたりするな。逆に ``Sequence`` で十分なのに ``MutableSequence`` と書くな。
 
   * ``Callable[]``: e.g. ``Callable[[ArgType0, ArgType1, ...], ReturnType]``
   * ``Generator[]``: e.g. ``Generator[YieldType, SendType, ReturnType]``
   * ``Iterable[]``: e.g. ``Iterable[YieldType]``
   * ``Mapping[]``: e.g. ``Mapping[KeyType, ValueType]``
   * ``Sequence[]``: e.g. ``Sequence[ValueType]``
+
+書くべき型がわからないときの対処法
+----------------------------------------------------------------------
+
+例えば ``with open(path, "r") as fp: ...`` のようなコードが与えられていて、自分
+のコードで ``fp`` を引数に取る関数を定義する必要があるとき、その注釈型をドキュメ
+ントをなるべく引かずに知りたいとする。
+
+そのようなときには ``typing.reveal_type(fp)`` をコード中に含ませて |mypy| に解析
+させる。すると次のように実際の型を示す：
+
+.. sourcecode:: console
+   :caption: ``reveal_type`` 呼び出し例
+   :force:
+
+   $ cat reveal_type_test.py
+        1  from typing import reveal_type
+        2
+        3  with open("tmp.txt", "r") as fp:
+        4      reveal_type(fp)
+        5      ...
+   $ mypy --strict reveal_type_test.py
+   reveal_type_test.py:4: note: Revealed type is "_io.TextIOWrapper[_io._WrappedBuffer]"
+   Success: no issues found in 1 source file
+
+この場合、型注釈としては ``typing.TextIO`` を用いるのが正解となる。なお、この例
+では ``open`` の第二引数の値によって ``fp`` の型が変わる。
+
+.. caution::
+
+   ``reveal_type`` 呼び出しが製品コードにあってはならない。
+
+..
+   N.b. mypy とは関係ないが：
+   Visual Studio Code で適当な Python 拡張をインストールしていてコードを編集する
+   のであれば、``reveal_type(fp)`` 内の ``fp`` にマウスカーソルを hover させると
+   ポップアップウィンドウに型が示される。
+
+型を |mypy| に教える
+----------------------------------------------------------------------
+
+下のコードは BeautifulSoup を用いた処理の断片だ。生の ``column.text`` のままでは
+|mypy| はこの型が ``str`` であることが推論できず ``strip`` 呼び出しをエラーとみ
+なす。こういう場合には例えば関数 ``typing.cast`` 呼び出しで対象部分をラップする
+と上手くいく：
+
+.. sourcecode:: python
+   :caption: ``typing.cast`` で型を明示する
+   :force:
+
+   def get_column_value(item: Tag, propname: str) -> str:
+       if prop := item.find(string=propname):
+           column = prop.find_next("td")
+           if isinstance(column, Tag):
+               return cast(str, column.text).strip()
+       ...
+
+コードを本質的に修正せずにエラーを黙らせる
+----------------------------------------------------------------------
+
+応急処置として |mypy| を黙らせる方法を記す。最終的にはコードのほうを正しく書くこ
+とで沈黙させろ。
+
+* インラインコメント :samp:`# type: ignore[{NAME}]` をエラー行の末尾に挿れる。
+* コマンドラインオプション :samp:`--disable-error-code NAME` を付けて実行する。
+
+代用ファイル
+----------------------------------------------------------------------
+
+型注釈の与え方として、これまで記してきたのは既存の Python ファイルに型を直接書き
+込む方式だった。これをインライン方式と呼ぶ。もう一つの与え方に、拡張子 .pyi の代
+用ファイルを設けるものがある。おそらく、特に、ライブラリーの機能が Python 以外の
+言語で実装されているなど、インライン型注釈が物理的に不可能である場合の代替法だと
+考えられる。
+
+拡張子が .pyi のファイル
+   対応する名前のモジュールが含む型付きオブジェクトの型注釈を記したファイル。
+ファイル :file:`py.typed`
+   代用システムを採用しているという目印。
+
+オーバーロード
+----------------------------------------------------------------------
+
+   If a function or method can return multiple different types and those types
+   can be determined based on the presence or types of certain parameters, use
+   the ``@overload`` mechanism defined in `PEP 484`_. When overloads are used
+   within a ".py" file, they must appear prior to the function implementation,
+   which should not have an ``@overload`` decorator. (`Typing Python Libraries`,
+   <https://typing.readthedocs.io/en/latest/guides/libraries.html>)
+
+リンク先を見ると組み込み型の機能における実装例を示している。これは後回しでいいか。
+
+統合
+======================================================================
+
+Visual Studio Code
+----------------------------------------------------------------------
+
+Visual Studio Code 拡張に mypy_ を支援するものがある。詳細は VS Code のサイドバー
+:guilabel:`EXTENSIONS` パネルの検索結果欄からそれぞれのヘルプページを見ろ。
+
+Mypy
+   Matan Gover 氏による拡張パック。使用者環境の |mypy| を用いるもよう。
+Mypy Type Checker
+   Microsoft による拡張パック。これ自体に |mypy| が付属されているもよう。Python
+   拡張が別途必要。
+
+どちらでも良さそうなので、前者の拡張をインストールしておく。インストールが完了し
+たら :kbd:`Ctrl` + :kbd:`,` で構成ファイルを開いて編集する。GUI を使う場合には検
+索欄に ``mypy`` と入力して項目を絞り込め。ユーザー用とプロジェクト用の区別に気を
+つけろ。
+
+.. sourcecode:: json
+   :caption: :file:`settings.json` 構成例
+   :force:
+
+   {
+     "mypy.configFile": "/path/to/mypy.ini",
+     "mypy.runUsingActiveInterpreter": true
+   }
+
+.. seealso::
+
+   :doc:`/vscode/extensions`
 
 資料集
 ======================================================================
@@ -188,6 +310,8 @@ Python コードに対する静的解析ツール Ruff_ を併用して、型注
    ドにおける型注釈は現在の Python 仕様を用いれば、コメントでない形式で書ける。
 `PEP 484 - Type Hints`_
    Python 型ヒント仕様と考えられる。
+`Static Typing with Python <https://typing.readthedocs.io/en/latest/>`__
+   これから読む。
 `Pros and Cons of Type Hints <https://realpython.com/lessons/pros-and-cons-type-hints/>`__
    型ヒント機能にまつわる長所と短所の比較論考。Real Python 内記事。
 `Static type checking <https://learn.scientific-python.org/development/guides/mypy/>`__
