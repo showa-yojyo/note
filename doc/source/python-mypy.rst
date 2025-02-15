@@ -154,27 +154,30 @@ Python コードに対する静的解析ツール Ruff_ を併用して、型注
 型注釈で用いる型には、オブジェクトの型ずばりそのものである場合とそうでない場合が
 ある。例として、自作関数のある引数の型として ``list[str]`` を想定していても、論
 理的には ``Sequence[str]`` や ``Iterable[str]`` などが正しいなどという場合が考え
-られる。後者についてはよくインポートする型があり、それを次にまとめる。
+られる。
 
-* `typing <https://docs.python.org/3/library/typing.html>`__
+モジュール `typing <https://docs.python.org/3/library/typing.html>`__ では次をよ
+く用いる：
 
-  * ``Any``
-  * ``Final``
-  * ``Literal`` およびその仲間
-  * ``NamedTuple``
-  * ``Never``
-  * ``NoReturn``
-  * ``Self``
-* `collections.abc <https://docs.python.org/3/library/collections.abc.html>`__:
-  リンク先文書の `Collections Abstract Base Classes` 節の表を理解しろ。特に
-  Inherits from 列が重要だ。例えば ``MutableSequence`` が必要なのに ``Sequence``
-  と書いたりするな。逆に ``Sequence`` で十分なのに ``MutableSequence`` と書くな。
+* ``Any``. 未知の型を意味すると覚えておけ。
+* ``Final[]``
+* ``Literal[]``, ``LiteralString[]``
+* ``Never``, ``NoReturn``
+* ``Self``. ただし、メソッドの第一引数を ``self: Self`` と明示的に指示する必要は
+  ないことに気をつけろ。
 
-  * ``Callable[]``: e.g. ``Callable[[ArgType0, ArgType1, ...], ReturnType]``
-  * ``Generator[]``: e.g. ``Generator[YieldType, SendType, ReturnType]``
-  * ``Iterable[]``: e.g. ``Iterable[YieldType]``
-  * ``Mapping[]``: e.g. ``Mapping[KeyType, ValueType]``
-  * ``Sequence[]``: e.g. ``Sequence[ValueType]``
+モジュール `collections.abc
+<https://docs.python.org/3/library/collections.abc.html>`__ で定義された汎用プロ
+トコルは重要だ。リンク先文書の `Collections Abstract Base Classes` 節の表を理解
+しろ。特に Inherits from 列が重要だ。例えば ``MutableSequence`` が必要なのに
+``Sequence`` と書いたり、逆に ``Sequence`` で十分なのに``MutableSequence`` と書
+いするのはダメだと心得ろ。
+
+* ``Callable[]``: e.g. ``Callable[[ArgType0, ArgType1, ...], ReturnType]``
+* ``Generator[]``: e.g. ``Generator[YieldType, SendType, ReturnType]``
+* ``Iterable[]``: e.g. ``Iterable[YieldType]``
+* ``Mapping[]``: e.g. ``Mapping[KeyType, ValueType]``
+* ``Sequence[]``: e.g. ``Sequence[ValueType]``
 
 書くべき型がわからないときの対処法
 ----------------------------------------------------------------------
@@ -311,7 +314,8 @@ Mypy Type Checker
 `PEP 484 - Type Hints`_
    Python 型ヒント仕様と考えられる。
 `Static Typing with Python <https://typing.readthedocs.io/en/latest/>`__
-   これから読む。
+   Type System Reference を通読して型理論の中核概念を理解しろ。かなりの数の例
+   コードで |mypy| がエラーを出すのがかなり気になるが。
 `Pros and Cons of Type Hints <https://realpython.com/lessons/pros-and-cons-type-hints/>`__
    型ヒント機能にまつわる長所と短所の比較論考。Real Python 内記事。
 `Static type checking <https://learn.scientific-python.org/development/guides/mypy/>`__
